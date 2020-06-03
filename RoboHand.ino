@@ -9,6 +9,7 @@
 #define MLIFT_SERVO 6   //  middle_lift servo
 #define GRIP_SERVO  5   //  grip servo
 
+
 //EASE_LINEAR       //
 //EASE_QUADRATIC    //
 //EASE_CUBIC        //
@@ -25,11 +26,18 @@ MPU6050 accelerometer;   // Create accelerometer and gyroscope sensor
 
 
 float acceleration_x, acceleration_y, acceleration_z;   //  Variables to store x,y,z accelerations from sensor
-float brot_deg, blift_deg, mlift_deg; //  Variables to define position of servos
+int brot_deg, blift_deg, mlift_deg; //  Variables to define position of servos
 bool is_grip;  //  Variable to activate grip
 bool connection;  //  Is accelerometer connected?
 
+const int n = 20;   // Mean array size
+int y[n], x[n];     // Mean arrays
+int i = 0;          // Array index
+
 float max_from_acc = 16000;   // Maximum value we can get from accelerometer to constrain to it
+
+void round_to_ten(int *num);
+
 
 
 void setup() {
@@ -57,6 +65,11 @@ void setup() {
   } while (!connection);
   Serial.println("Conncetion successful");
 
+  for (int j = 0; j < n; j++) {                   ////
+    y[j] = accelerometer.getAccelerationY();      //  Fill arrays with initial values so they are not empty by the time servos start
+    x[j] = accelerometer.getAccelerationX();      //
+  }                                               ////
+
 }
 
 
@@ -69,22 +82,53 @@ void loop() {
   Serial.println("X: " + String(acceleration_x) + "\tY: " + String(acceleration_y));
 
 
-  brot_deg = constrain(acceleration_y, -max_from_acc, max_from_acc);    //  Constrain values from accelerometer and convert them to degrees
+  brot_deg = constrain(mean(y, n), -max_from_acc, max_from_acc);   //  Constrain values from accelerometer and convert them to degrees
   brot_deg = map(brot_deg, -max_from_acc, max_from_acc, 0, 180);        ////  -Base rotation
 
-  blift_deg = constrain(acceleration_x, -max_from_acc, max_from_acc);
+  blift_deg = constrain(mean(x, n), -max_from_acc, max_from_acc);
   blift_deg = map(blift_deg, -max_from_acc, max_from_acc, 0, 180);      ////  -Base lift
 
   mlift_deg = map(mlift_deg, 0, 1023, 0, 180);                          ////  -Middle lift
 
 
-  Serial.println("X: " + String(blift_deg) + "\tY: " + String(brot_deg));
-
-  base_rotation.startEaseTo(brot_deg, 270);       ////
-  base_lift.startEaseTo(180 - blift_deg, 270);    //  Write degrees to servos
-  middle_lift.startEaseTo(mlift_deg, 270);        ////
+  //  Serial.println("X: " + String(blift_deg) + "\tY: " + String(brot_deg));
 
 
-  Serial.println(accelerometer.testConnection());
-  delay(20);
+  base_rotation.startEaseTo(brot_deg, 270);           ////
+  base_lift.startEaseTo(180 - blift_deg, 270);        //  Write degrees to servos
+  //  middle_lift.startEaseTo(mlift_deg, 270);        ////
+
+
+  y[i] = acceleration_y;      ////
+  x[i] = acceleration_x;      //  Replace old values in array with actual
+  i++;                        //
+  i %= n;                     ////
+
+  
+  //  Serial.println(accelerometer.testConnection());
+  //  delay(10);
+}
+
+
+
+
+void round_to_ten(int *num) {
+  int remainder = *num % 10;
+  if (remainder >= 5)
+  {
+    *num += 10 - remainder;
+  } else if (remainder < 5)
+  {
+    *num -= remainder;
+  }
+}
+
+
+float mean(int a[], int n)
+{
+  long sum = 0;
+  for (int i = 0; i < n; i++)
+    sum += a[i];
+
+  return (float)sum / (float)n;
 }
