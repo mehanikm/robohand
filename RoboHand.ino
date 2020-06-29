@@ -8,8 +8,8 @@
 #define BLIFT_SERVO 9   //  base_lift servo
 #define MLIFT_SERVO 6   //  middle_lift servo
 #define GRIP_SERVO  12   //  grip servo
-#define mid_pot     0  //  potentiometer for middle joint
-#define grip_pot    1  //  potentiometer for grip
+#define mid_pot     A0  //  potentiometer for middle joint
+#define grip_pot    A1  //  potentiometer for grip
 
 
 //EASE_LINEAR       //
@@ -39,6 +39,7 @@ int y[n], x[n], p[n];           // Arrays of values from sensors
 int i = 0;                      // Arrays index
 
 float max_from_acc = 16000;     // Maximum value we can get from accelerometer to constrain to it
+float k1 = .357, k2 = 1.89;
 
 
 
@@ -84,7 +85,7 @@ void loop() {
   acceleration_x = accelerometer.getAccelerationX();  //Read X from accelerometer
   acceleration_y = accelerometer.getAccelerationY();  //Read Y from accelerometer
   potent = analogRead(mid_pot);                       //Read value from petentiometer
-  grip_deg = analogRead(grip_pot);
+  grip_deg = 1023-analogRead(grip_pot);
 
   //  Serial.println("X: " + String(acceleration_x) + "\tY: " + String(acceleration_y));
 
@@ -93,20 +94,22 @@ void loop() {
   brot_deg = map(brot_deg, -max_from_acc, max_from_acc, 0, 180);            ////  -Base rotation
 
   blift_deg = constrain(mean(x, n), -max_from_acc, max_from_acc);           //
-  blift_deg = map(blift_deg, -max_from_acc, max_from_acc, 0, 150);          ////  -Base lift
+  blift_deg = map(blift_deg, -max_from_acc, max_from_acc, 20, 160);         ////  -Base lift
 
-
-  low_bound_lift = 60.0 - float(blift_deg) * .5;                            //  Calculate low degree bound for middle joint
-  high_bound_lift = 300.0 - float(blift_deg) * 2;                           //  Calculate high degree bound for middle joint
-  low_bound_lift = constrain(low_bound_lift, 0.0, 50.0);                    //  Constrain bounds
+  float temp = 180-blift_deg;
+  low_bound_lift = k1 * (temp - 80);                                   //  Calculate low degree bound for middle joint
+  high_bound_lift = temp * k2 + 10;                                    //  Calculate high degree bound for middle joint
+  low_bound_lift = constrain(low_bound_lift, 0.0, 30.0);                    //  Constrain bounds
   high_bound_lift = constrain(high_bound_lift, 0.0, 180.0);                 //  Constrain bounds
   mlift_deg = map(mean(p, n), 0, 1023, low_bound_lift, high_bound_lift);    ////  -Middle lift
   grip_deg = map(grip_deg, 0, 1023, grip_low_bound, grip_high_bound);
 
+  Serial.println(String(grip_deg)+"\t"+String(low_bound_lift)+"\t"+String(high_bound_lift));
 
-  Serial.println("DegBR: " + String(brot_deg) + "\tDegBL: " + String(blift_deg) + \
-                 "\tDegML: " + String(mlift_deg) + "\tLow: " + String(low_bound_lift) +  \
-                 "\tHigh: " + String(high_bound_lift));
+
+//  Serial.println("DegBR: " + String(brot_deg) + "\tDegBL: " + String(blift_deg) + \
+//                 "\tDegML: " + String(mlift_deg) + "\tLow: " + String(low_bound_lift) +  \
+//                 "\tHigh: " + String(high_bound_lift));
 
 
   base_rotation.startEaseTo(brot_deg, 270);           ////
@@ -123,7 +126,7 @@ void loop() {
 
 
   //  Serial.println(accelerometer.testConnection());
-  //    delay(100);
+//      delay(100);
 }
 
 
